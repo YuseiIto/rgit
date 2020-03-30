@@ -104,7 +104,6 @@ fn main() {
             obj_path.push(file_name);
 
             let compressed = deflate_bytes_zlib_conf(&buf, Compression::Fast);
-            /*fs::write(&obj_path, &data).unwrap();*/
             fs::write(&obj_path, &compressed).unwrap();
         }
     }
