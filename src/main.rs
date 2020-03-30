@@ -44,16 +44,24 @@ fn main() {
             ];
             dig_dirs(&path_base, &dirs);
 
-            let mut hw_path = PathBuf::from(&path_base);
-            hw_path.push("HelloWorld.txt");
-            let output = "Hello, world!";
-            create_file(&hw_path, &output);
+            create_file(&path_base,"config","[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallrefupdates = true\n\tignorecase = true\n\tprecomposeunicode = true\n");
+            create_file(
+                &path_base,
+                "description",
+                "Unnamed repository; edit this file 'description' to name the repository.\n",
+            );
+
+            create_file(&path_base,"info/exclude","# git ls-files --others --exclude-from=.git/info/exclude\n# Lines that start with '#' are comments.\n# For a project mostly in C, the following would be a good set of\n# exclude patterns (uncomment them if you want to use them):\n# *.[oa]\n# *~\n");
+            create_file(&path_base, "HEAD", "ref: refs/heads/master");
         }
     }
 }
 
-fn create_file(path: &PathBuf, content: &str) {
-    let mut ofile = File::create(path).expect("unable to create file");
+fn create_file(path: &PathBuf, name: &str, content: &str) {
+    let mut p = PathBuf::from(path);
+    p.push(name);
+
+    let mut ofile = File::create(&p).expect("unable to create file");
     ofile
         .write_all(content.as_bytes())
         .expect("unable to write");
