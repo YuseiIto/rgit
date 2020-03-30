@@ -5,6 +5,8 @@ use std::io::prelude::*;
 use std::io::Read;
 use std::path::PathBuf;
 extern crate dirs;
+extern crate sha1;
+use deflate::{deflate_bytes_zlib_conf, Compression};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -56,6 +58,7 @@ fn main() {
             create_file(&path_base, "HEAD", "ref: refs/heads/master");
         } else if cmd == &String::from("add") {
             let mut p = PathBuf::from(&path_base);
+            p.pop();
 
             let name = match args.get(2) {
                 Some(v) => v,
@@ -63,7 +66,6 @@ fn main() {
             };
 
             p.push(name);
-
             let meta = fs::metadata(&p).expect("Failed to get metadata");
             let size = meta.len();
 
@@ -71,17 +73,39 @@ fn main() {
             head.push_str(&size.to_string());
             head.push('\0');
 
-            let current_path = match args.get(0) {
-                Some(v) => v,
-                None => panic!("Couldn't get current path"),
-            };
-
-            let current_path = PathBuf::from(current_path);
-            let mut head = head.into_bytes();
+            let head = head.into_bytes();
 
             let mut buf = Vec::new();
-            buf.append(&mut head);
-            read_bytes(&current_path, &name, &mut buf);
+            buf.extend(head.iter().cloned());
+
+            let data = read_bytes(&p);
+            buf.extend(data.iter().cloned());
+
+            let mut hasher = sha1::Sha1::new();
+            hasher.update(&buf);
+            let hash = hasher.digest().to_string();
+
+            let dir_name = match hash.get(0..2) {
+                Some(v) => v,
+                None => panic!("Cannot get dir_name"),
+            };
+
+            let file_name = match hash.get(2..(hash.len())) {
+                Some(v) => v,
+                None => panic!("Cannot get file_name"),
+            };
+
+            let mut obj_path = PathBuf::from(&path_base);
+            obj_path.push("objects");
+
+            dig_dirs(&obj_path, &vec![dir_name]);
+
+            obj_path.push(&dir_name);
+            obj_path.push(file_name);
+
+            let compressed = deflate_bytes_zlib_conf(&buf, Compression::Fast);
+            /*fs::write(&obj_path, &data).unwrap();*/
+            fs::write(&obj_path, &compressed).unwrap();
         }
     }
 }
@@ -105,11 +129,9 @@ fn dig_dirs(path_base: &PathBuf, dirs: &Vec<&str>) {
     }
 }
 
-fn read_bytes(path: &PathBuf, name: &str, buf: &mut Vec<u8>) {
-    let mut p = PathBuf::from(&path);
-    p.push(&name);
+fn read_bytes(path: &PathBuf) -> Vec<u8> {
     let mut file = std::fs::File::open(&path).expect("file open failed");
     let mut b = Vec::new();
-    file.read_exact(&mut b).expect("Failed to read the file");
-    buf.append(&mut b);
+    file.read_to_end(&mut b).expect("Failed to read the file");
+    b
 }
