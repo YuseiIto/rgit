@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 dirs = "2.0.2"
 sha1 = "0.6.0"
+deflate = "0.8.3"
