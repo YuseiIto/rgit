@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Read;
 use std::path::PathBuf;
+extern crate chrono;
 extern crate dirs;
 extern crate sha1;
 use deflate::{deflate_bytes_zlib_conf, Compression};
@@ -105,6 +106,21 @@ fn main() {
 
             let compressed = deflate_bytes_zlib_conf(&buf, Compression::Fast);
             fs::write(&obj_path, &compressed).unwrap();
+
+            //Create index
+
+            let mut buf = Vec::new();
+            let mut signature = String::from("DIRC").into_bytes();
+            buf.append(&mut signature);
+            buf.append(&mut vec![0, 0, 0, 2]);
+            buf.append(&mut vec![0, 0, 0, 1]); //TODO: Make this dynamic(Entry count)
+
+            //Create entry
+            let dt: chrono::DateTime<chrono::Local> = chrono::Local::now();
+            let timestamp: u64 = dt.timestamp() as u64;
+            let mut entry = Vec::new();
+            entry.extend(form_timestamp(&timestamp));
+            println!("{:#?}", &buf);
         }
     }
 }
@@ -133,4 +149,15 @@ fn read_bytes(path: &PathBuf) -> Vec<u8> {
     let mut b = Vec::new();
     file.read_to_end(&mut b).expect("Failed to read the file");
     b
+}
+
+fn form_timestamp(num: &u64) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.push(((num >> 1) as u8) & 0xFF);
+    buf.push(((num >> 0) as u8) & 0xFF);
+    buf.push(((num >> 4) as u8) & 0xFF);
+    buf.push(((num >> 3) as u8) & 0xFF);
+
+    buf.extend(vec![0, 0, 0, 0]);
+    buf
 }
