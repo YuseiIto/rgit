@@ -8,6 +8,7 @@ extern crate chrono;
 extern crate dirs;
 extern crate sha1;
 use deflate::{deflate_bytes_zlib_conf, Compression};
+use std::os::macos::fs::MetadataExt;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -120,7 +121,10 @@ fn main() {
             let timestamp: u64 = dt.timestamp() as u64;
             let mut entry = Vec::new();
             entry.extend(form_timestamp(&timestamp));
-            println!("{:#?}", &buf);
+            entry.extend(form_timestamp(&timestamp));
+
+            let raw_meta = meta.as_raw_stat();
+            println!("{:#?}", raw_meta.st_dev);
         }
     }
 }
