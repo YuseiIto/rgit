@@ -67,7 +67,7 @@ fn main() {
                 None => panic!("No file specified"),
             };
 
-            p.push(name);
+            p.push(&name);
             let meta = fs::metadata(&p).expect("Failed to get metadata");
             let size = meta.len();
 
@@ -124,7 +124,25 @@ fn main() {
             entry.extend(form_timestamp(&timestamp));
 
             let raw_meta = meta.as_raw_stat();
-            println!("{:#?}", raw_meta.st_dev);
+            entry.extend(chop_i32(&raw_meta.st_dev));
+            entry.extend(chop_i32(&(raw_meta.st_ino as i32)));
+            entry.extend(chop_u32(&(raw_meta.st_mode as u32)));
+            entry.extend(chop_u32(&raw_meta.st_uid));
+            entry.extend(chop_u32(&raw_meta.st_gid));
+            entry.extend(chop_u32(&(size as u32)));
+
+            let hash = hasher.digest().bytes();
+            entry.extend(&hash);
+
+            let name_bytes = name.clone().into_bytes();
+            entry.extend(chop_u16(&(name_bytes.len() as u16)));
+            entry.extend(&name_bytes);
+            entry.extend(padding((16 - (entry.len() as u32) % 12) - 4));
+
+            buf.extend(&entry);
+            let mut index_path = PathBuf::from(&path_base);
+            index_path.push("index");
+            fs::write(&index_path, &buf).unwrap();
         }
     }
 }
@@ -163,5 +181,39 @@ fn form_timestamp(num: &u64) -> Vec<u8> {
     buf.push(((num >> 3) as u8) & 0xFF);
 
     buf.extend(vec![0, 0, 0, 0]);
+    buf
+}
+
+fn chop_i32(num: &i32) -> Vec<u8> {
+    let _num = num.to_be();
+    let mut buf = Vec::new();
+    for e in 0..4 {
+        buf.push(((_num >> e * 8) as u8) & 0xFF);
+    }
+    buf
+}
+
+fn chop_u32(num: &u32) -> Vec<u8> {
+    let _num = num.to_be();
+    let mut buf = Vec::new();
+    for e in 0..4 {
+        buf.push(((_num >> e * 8) as u8) & 0xFF);
+    }
+    buf
+}
+
+fn chop_u16(num: &u16) -> Vec<u8> {
+    let _num = num.to_be();
+    let mut buf = Vec::new();
+    buf.push(((_num >> 0 * 8) as u8) & 0xFF);
+    buf.push(((_num >> 1 * 8) as u8) & 0xFF);
+    buf
+}
+
+fn padding(len: u32) -> Vec<u8> {
+    let mut buf = Vec::new();
+    for i in 0..len {
+        buf.push(0);
+    }
     buf
 }
